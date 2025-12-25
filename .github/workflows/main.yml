@@ -71,9 +71,9 @@ on:
         type: string
 
       tweak_version:
-        description: "The version of the tweak to use. Enter the version manually from dayanch96/YTLite/releases or leave default"
-        default: "5.2b4"
-        required: true
+        description: "The version of the tweak to use (optional - leave empty to use latest from dayanch96/YTLite/releases)"
+        default: ""
+        required: false
         type: string
 
       display_name:
@@ -168,10 +168,59 @@ jobs:
       - name: Install cyan
         run: pipx install --force https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
 
+      - name: Get latest YTLite version
+        id: ytlite_version
+        run: |
+          if [ -z "${{ inputs.tweak_version }}" ]; then
+            echo "Fetching latest release from dayanch96/YTLite..."
+            
+            # Use GitHub API with authentication token (automatically available in GitHub Actions)
+            LATEST_TAG=$(python3 -c "
+            import json, urllib.request, sys, os
+            try:
+                token = os.environ.get('GITHUB_TOKEN', '')
+                req = urllib.request.Request('https://api.github.com/repos/dayanch96/YTLite/releases/latest')
+                req.add_header('Authorization', f'Bearer {token}')
+                req.add_header('Accept', 'application/vnd.github.v3+json')
+                with urllib.request.urlopen(req) as response:
+                    data = json.loads(response.read().decode())
+                    tag = data.get('tag_name', '')
+                    if tag:
+                        print(tag)
+                    else:
+                        print('No tag_name in response', file=sys.stderr)
+                        sys.exit(1)
+            except urllib.error.HTTPError as e:
+                print(f'HTTP Error {e.code}: {e.reason}', file=sys.stderr)
+                if e.code == 404:
+                    print('Release not found', file=sys.stderr)
+                sys.exit(1)
+            except Exception as e:
+                print(f'Error: {e}', file=sys.stderr)
+                sys.exit(1)
+            ")
+            
+            if [ -z "$LATEST_TAG" ]; then
+              echo "::error::Failed to fetch latest release tag from GitHub API"
+              exit 1
+            fi
+            
+            # Remove 'v' prefix if present (e.g., v5.2b4 -> 5.2b4)
+            VERSION="${LATEST_TAG#v}"
+            echo "Latest version found: $VERSION (tag: $LATEST_TAG)"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Using provided version: ${{ inputs.tweak_version }}"
+            echo "version=${{ inputs.tweak_version }}" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Download YouTube Plus
         id: download_ytp
         run: |
-          deb_url="https://github.com/dayanch96/YTLite/releases/download/v${{ inputs.tweak_version }}/com.dvntm.ytlite_${{ inputs.tweak_version }}_iphoneos-arm.deb"
+          deb_url="https://github.com/dayanch96/YTLite/releases/download/v${{ steps.ytlite_version.outputs.version }}/com.dvntm.ytlite_${{ steps.ytlite_version.outputs.version }}_iphoneos-arm.deb"
+          echo "Downloading YouTube Plus version: ${{ steps.ytlite_version.outputs.version }}"
           wget "$deb_url" --no-verbose -O ${{ github.workspace }}/ytplus.deb
 
       - name: Clone Open in YouTube (Safari extension)
@@ -383,14 +432,14 @@ jobs:
             fi
           done
 
-          cyan -i youtube.ipa -o YTPlusYTweaks_${{ inputs.tweak_version }}.ipa -uwef $tweaks -n "${{ inputs.display_name }}" -b ${{ inputs.bundle_id }}
+          cyan -i youtube.ipa -o YTPlusYTweaks_${{ steps.ytlite_version.outputs.version }}.ipa -uwef $tweaks -n "${{ inputs.display_name }}" -b ${{ inputs.bundle_id }}
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2.0.1
         with:
           tag_name: ytp-${{ github.run_number }}
-          name: YouTubePlus v${{ inputs.tweak_version }} (${{ github.run_number }})
-          files: YTPlusYTweaks_${{ inputs.tweak_version }}.ipa
+          name: YouTubePlus v${{ steps.ytlite_version.outputs.version }} (${{ github.run_number }})
+          files: YTPlusYTweaks_${{ steps.ytlite_version.outputs.version }}.ipa
           draft: true
 
       - name: Output Release URL
