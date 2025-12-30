@@ -1,7 +1,7 @@
 # YouTube Plus (YTweaks Fork)
-[YouYube Plus](https://github.com/dayanch96/YTLite) with added plugins.
+[YouTube Plus](https://github.com/dayanch96/YTLite) with added plugins.
 
-This repo focuses on simplifying the build process of YouTube Plus, and adding more optional tweaks to bundle with it (specificially [YTweaks](https://github.com/fosterbarnes/YTweaks)). No changes have been made to the YouTube Plus .deb itself, just the tweaks that get packaged with it. 
+This repo focuses on simplifying the build process of YouTube Plus, and adding more optional tweaks to bundle with it (specifically [YTweaks](https://github.com/fosterbarnes/YTweaks)). No changes have been made to the YouTube Plus .deb itself, just the tweaks that get packaged with it. 
 
 When building the app, the latest stable YouTube Plus .deb is downloaded from the original repo, then other tweaks are built from source. All tweaks are then injected into your IPA.
 
@@ -11,7 +11,7 @@ YTweaks added settings:
 - **Virtual fullscreen bezels:** Adds invisible touch-safe zones on black bars to prevent accidental taps and skips.
 
 Experimental planned features
-- **Hide AI Summaries** Hides AI summaries that appear in the feed.
+- **Hide AI Summaries:** Hides AI summaries that appear in the feed.
 
 
 Added tweaks:
@@ -172,7 +172,7 @@ Examples:
 - [Screenshots](#screenshots)
 - [Main Features](#main-features)
 - [FAQ](#faq)
-- [How to build a YouTube Plus app using GitHub Actions](#how-to-build-a-youtube-plus-app-using-github-actions)
+- [How to build a YTPlusYTweaks app](#how-to-build-a-ytplusytweaks-app)
 - [Supported YouTube Version](#supported-youtube-version)
 - [Tweak Integration Details](#tweak-integration-details)
 
