@@ -1,0 +1,112 @@
+name: 'Clone Tweaks'
+description: 'Clone enabled tweaks repositories'
+inputs:
+  enable_youpip:
+    required: true
+  enable_ytuhd:
+    required: true
+  enable_ryd:
+    required: true
+  enable_yougroupsettings:
+    required: true
+  enable_yq:
+    required: true
+  enable_ytabconfig:
+    required: true
+  enable_ytweaks:
+    required: true
+  enable_yticons:
+    required: true
+  enable_demc:
+    required: true
+  enable_gonerino:
+    required: true
+  cache_youpip_hit:
+    required: true
+  cache_ytuhd_hit:
+    required: true
+  cache_ryd_hit:
+    required: true
+  cache_ygs_hit:
+    required: true
+  cache_yq_hit:
+    required: true
+  cache_yabc_hit:
+    required: true
+  cache_ytwks_hit:
+    required: true
+  cache_yticons_hit:
+    required: true
+  cache_demc_hit:
+    required: true
+  cache_gonerino_hit:
+    required: true
+  cache_ytvo_hit:
+    required: true
+  workspace:
+    required: true
+    description: 'GitHub workspace path'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Clone tweaks
+      shell: bash
+      env:
+        ENABLE_YOUPIP: ${{ inputs.enable_youpip }}
+        ENABLE_YTUHD: ${{ inputs.enable_ytuhd }}
+        ENABLE_RYD: ${{ inputs.enable_ryd }}
+        ENABLE_YOUGROUPSETTINGS: ${{ inputs.enable_yougroupsettings }}
+        ENABLE_YQ: ${{ inputs.enable_yq }}
+        ENABLE_YTABCONFIG: ${{ inputs.enable_ytabconfig }}
+        ENABLE_YTWEAKS: ${{ inputs.enable_ytweaks }}
+        ENABLE_YTICONS: ${{ inputs.enable_yticons }}
+        ENABLE_DEMC: ${{ inputs.enable_demc }}
+        ENABLE_GONERINO: ${{ inputs.enable_gonerino }}
+        CACHE_YOUPIP_HIT: ${{ inputs.cache_youpip_hit }}
+        CACHE_YTUHD_HIT: ${{ inputs.cache_ytuhd_hit }}
+        CACHE_RYD_HIT: ${{ inputs.cache_ryd_hit }}
+        CACHE_YGS_HIT: ${{ inputs.cache_ygs_hit }}
+        CACHE_YQ_HIT: ${{ inputs.cache_yq_hit }}
+        CACHE_YABC_HIT: ${{ inputs.cache_yabc_hit }}
+        CACHE_YTWKS_HIT: ${{ inputs.cache_ytwks_hit }}
+        CACHE_YTICONS_HIT: ${{ inputs.cache_yticons_hit }}
+        CACHE_DEMC_HIT: ${{ inputs.cache_demc_hit }}
+        CACHE_GONERINO_HIT: ${{ inputs.cache_gonerino_hit }}
+        CACHE_YTVO_HIT: ${{ inputs.cache_ytvo_hit }}
+      run: |
+        cd ${{ inputs.workspace }}
+        
+        # enable_var|cache_var|repo_url|display_name|extra_flags
+        declare -a tweaks=(
+          "ENABLE_YOUPIP|CACHE_YOUPIP_HIT|https://github.com/PoomSmart/YouPiP.git|YouPiP|"
+          "ENABLE_YTUHD|CACHE_YTUHD_HIT|https://github.com/Tonwalter888/YTUHD.git|YTUHD|"
+          "ENABLE_RYD|CACHE_RYD_HIT|https://github.com/PoomSmart/Return-YouTube-Dislikes.git|Return-YouTube-Dislikes|"
+          "ENABLE_YOUGROUPSETTINGS|CACHE_YGS_HIT|https://github.com/fosterbarnes/YouGroupSettings.git|YouGroupSettings|"
+          "ENABLE_YQ|CACHE_YQ_HIT|https://github.com/PoomSmart/YouQuality.git|YouQuality|"
+          "ENABLE_YTABCONFIG|CACHE_YABC_HIT|https://github.com/PoomSmart/YTABConfig.git|YTABConfig|"
+          "ENABLE_YTWEAKS|CACHE_YTWKS_HIT|https://github.com/fosterbarnes/YTweaks.git|YTweaks|"
+          "ENABLE_YTICONS|CACHE_YTICONS_HIT|https://github.com/PoomSmart/YTIcons.git|YTIcons|"
+          "ENABLE_DEMC|CACHE_DEMC_HIT|https://github.com/therealFoxster/DontEatMyContent.git|DontEatMyContent|--recurse-submodules"
+          "ENABLE_GONERINO|CACHE_GONERINO_HIT|https://github.com/castdrian/Gonerino.git|Gonerino|"
+        )
+        
+        for tweak in "${tweaks[@]}"; do
+          IFS='|' read -r enable_var cache_var repo_url display_name extra_flags <<< "$tweak"
+          if [ "${!enable_var}" = "true" ] && [ "${!cache_var}" != "true" ]; then
+            echo "Cloning $display_name..."
+            git clone --quiet --depth=1 $extra_flags "$repo_url"
+          fi
+        done
+        
+        # Handle conditional YTVideoOverlay
+        # Always clone YTVideoOverlay if YouQuality or YouPiP is enabled, they depend on Header.h file at build time
+        if [ "$ENABLE_YQ" = "true" ] || [ "$ENABLE_YOUPIP" = "true" ]; then
+          if [ ! -d "YTVideoOverlay" ]; then
+            echo "Cloning YTVideoOverlay..."
+            git clone --quiet --depth=1 https://github.com/PoomSmart/YTVideoOverlay.git
+          else
+            echo "YTVideoOverlay already exists, skipping clone"
+          fi
+        fi
+

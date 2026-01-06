@@ -1,0 +1,126 @@
+name: 'Build Tweaks'
+description: 'Build enabled tweaks'
+inputs:
+  enable_youpip:
+    required: true
+  enable_ytuhd:
+    required: true
+  enable_ryd:
+    required: true
+  enable_yougroupsettings:
+    required: true
+  enable_yq:
+    required: true
+  enable_ytabconfig:
+    required: true
+  enable_ytweaks:
+    required: true
+  enable_yticons:
+    required: true
+  enable_demc:
+    required: true
+  enable_gonerino:
+    required: true
+  cache_youpip_hit:
+    required: true
+  cache_ytuhd_hit:
+    required: true
+  cache_ryd_hit:
+    required: true
+  cache_ygs_hit:
+    required: true
+  cache_yq_hit:
+    required: true
+  cache_yabc_hit:
+    required: true
+  cache_ytwks_hit:
+    required: true
+  cache_yticons_hit:
+    required: true
+  cache_demc_hit:
+    required: true
+  cache_gonerino_hit:
+    required: true
+  cache_ytvo_hit:
+    required: true
+  theos_path:
+    required: true
+    description: 'Path to Theos installation'
+  workspace:
+    required: true
+    description: 'GitHub workspace path'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build tweaks
+      shell: bash
+      env:
+        THEOS: ${{ inputs.theos_path }}
+        ENABLE_YOUPIP: ${{ inputs.enable_youpip }}
+        ENABLE_YTUHD: ${{ inputs.enable_ytuhd }}
+        ENABLE_RYD: ${{ inputs.enable_ryd }}
+        ENABLE_YOUGROUPSETTINGS: ${{ inputs.enable_yougroupsettings }}
+        ENABLE_YQ: ${{ inputs.enable_yq }}
+        ENABLE_YTABCONFIG: ${{ inputs.enable_ytabconfig }}
+        ENABLE_YTWEAKS: ${{ inputs.enable_ytweaks }}
+        ENABLE_YTICONS: ${{ inputs.enable_yticons }}
+        ENABLE_DEMC: ${{ inputs.enable_demc }}
+        ENABLE_GONERINO: ${{ inputs.enable_gonerino }}
+        CACHE_YOUPIP_HIT: ${{ inputs.cache_youpip_hit }}
+        CACHE_YTUHD_HIT: ${{ inputs.cache_ytuhd_hit }}
+        CACHE_RYD_HIT: ${{ inputs.cache_ryd_hit }}
+        CACHE_YGS_HIT: ${{ inputs.cache_ygs_hit }}
+        CACHE_YQ_HIT: ${{ inputs.cache_yq_hit }}
+        CACHE_YABC_HIT: ${{ inputs.cache_yabc_hit }}
+        CACHE_YTWKS_HIT: ${{ inputs.cache_ytwks_hit }}
+        CACHE_YTICONS_HIT: ${{ inputs.cache_yticons_hit }}
+        CACHE_DEMC_HIT: ${{ inputs.cache_demc_hit }}
+        CACHE_GONERINO_HIT: ${{ inputs.cache_gonerino_hit }}
+        CACHE_YTVO_HIT: ${{ inputs.cache_ytvo_hit }}
+      run: |
+        cd ${{ inputs.workspace }}
+        
+        # enable_var|cache_var|dir_name|output_file|display_name
+        declare -a tweaks=(
+          "ENABLE_YOUPIP|CACHE_YOUPIP_HIT|YouPiP|youpip.deb|YouPiP"
+          "ENABLE_YTUHD|CACHE_YTUHD_HIT|YTUHD|ytuhd.deb|YTUHD"
+          "ENABLE_RYD|CACHE_RYD_HIT|Return-YouTube-Dislikes|ryd.deb|Return-YouTube-Dislikes"
+          "ENABLE_YOUGROUPSETTINGS|CACHE_YGS_HIT|YouGroupSettings|ygs.deb|YouGroupSettings"
+          "ENABLE_YQ|CACHE_YQ_HIT|YouQuality|yq.deb|YouQuality"
+          "ENABLE_YTABCONFIG|CACHE_YABC_HIT|YTABConfig|yabc.deb|YTABConfig"
+          "ENABLE_YTWEAKS|CACHE_YTWKS_HIT|YTweaks|ytwks.deb|YTweaks"
+          "ENABLE_YTICONS|CACHE_YTICONS_HIT|YTIcons|yticons.deb|YTIcons"
+          "ENABLE_DEMC|CACHE_DEMC_HIT|DontEatMyContent|demc.deb|DontEatMyContent"
+          "ENABLE_GONERINO|CACHE_GONERINO_HIT|Gonerino|gonerino.deb|Gonerino"
+        )
+        
+        for tweak in "${tweaks[@]}"; do
+          IFS='|' read -r enable_var cache_var dir_name output_file display_name <<< "$tweak"
+          
+          if [ "${!enable_var}" = "true" ]; then
+            if [ "${!cache_var}" != "true" ]; then
+              echo "Building $display_name..."
+              cd "$dir_name"
+              make clean package DEBUG=0 FINALPACKAGE=1
+              mv packages/*.deb "${{ inputs.workspace }}/$output_file"
+              cd ..
+            else
+              echo "Using cached $display_name"
+            fi
+          fi
+        done
+        
+        # Handle conditional YTVideoOverlay
+        if [ "$ENABLE_YQ" = "true" ] || [ "$ENABLE_YOUPIP" = "true" ]; then
+          if [ "$CACHE_YTVO_HIT" != "true" ]; then
+            echo "Building YTVideoOverlay..."
+            cd YTVideoOverlay
+            make clean package DEBUG=0 FINALPACKAGE=1
+            mv packages/*.deb ${{ inputs.workspace }}/ytvo.deb
+            cd ..
+          else
+            echo "Using cached YTVideoOverlay"
+          fi
+        fi
+

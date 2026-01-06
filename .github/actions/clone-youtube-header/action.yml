@@ -1,0 +1,35 @@
+name: 'Clone YouTubeHeader'
+description: 'Clone or update YouTubeHeader repository'
+inputs:
+  theos_path:
+    required: true
+    description: 'Path to Theos installation'
+  enable_demc:
+    required: true
+    description: 'Whether DontEatMyContent is enabled'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Clone YouTubeHeader
+      shell: bash
+      env:
+        THEOS: ${{ inputs.theos_path }}
+        ENABLE_DEMC: ${{ inputs.enable_demc }}
+      run: |
+        if [ -d "$THEOS/include/YouTubeHeader" ]; then
+          echo "YouTubeHeader exists. Pulling latest changes..."
+          cd $THEOS/include/YouTubeHeader
+          git pull
+        else
+          echo "YouTubeHeader does not exist. Cloning repository..."
+          cd $THEOS/include
+          git clone --quiet --depth=1 https://github.com/PoomSmart/YouTubeHeader.git
+        fi
+
+        if [ "$ENABLE_DEMC" = "true" ]; then
+          echo "Copying YouTubeHeader to YTHeaders..."
+          rm -rf "$THEOS/include/YTHeaders"
+          cp -r "$THEOS/include/YouTubeHeader" "$THEOS/include/YTHeaders"
+        fi
+

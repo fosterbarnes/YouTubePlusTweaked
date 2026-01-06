@@ -1,0 +1,24 @@
+name: 'Cache Theos'
+description: 'Cache Theos installation'
+inputs:
+  sdk_version:
+    required: true
+    description: 'iOS SDK Version'
+
+outputs:
+  cache-hit:
+    description: "Whether the cache was hit"
+    value: ${{ steps.cache_theos.outputs.cache-hit }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cache Theos
+      id: cache_theos
+      uses: actions/cache@v4
+      env:
+        cache-name: theos_cache_67db2ab
+      with:
+        path: theos/
+        key: ${{ env.cache-name }}_${{ inputs.sdk_version }}
+

@@ -1,0 +1,21 @@
+name: 'Download iOS 17.5 SDK'
+description: 'Download iOS 17.5 SDK for Theos'
+inputs:
+  theos_path:
+    required: true
+    description: 'Path to Theos installation'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download iOS 17.5 SDK
+      shell: bash
+      env:
+        THEOS: ${{ inputs.theos_path }}
+      run: |
+        git clone --quiet --no-tags --single-branch --depth=1 -n --filter=tree:0 https://github.com/Tonwalter888/iOS-17.5-SDK
+        cd iOS-17.5-SDK
+        git sparse-checkout set --no-cone iPhoneOS17.5.sdk
+        git checkout
+        mv *.sdk $THEOS/sdks
+

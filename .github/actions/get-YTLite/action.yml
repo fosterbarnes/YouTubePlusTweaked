@@ -1,0 +1,77 @@
+name: 'Get YTLite'
+description: 'Get YTLite release version and download DEB file'
+inputs:
+  tweak_version:
+    required: false
+    description: 'YTLite version (optional - leave empty to use latest)'
+  workspace:
+    required: true
+    description: 'GitHub workspace path'
+  github_token:
+    required: true
+    description: 'GitHub token for API calls'
+
+outputs:
+  version:
+    description: "Resolved YTLite version"
+    value: ${{ steps.get_ytlite.outputs.version }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get YTLite release and download
+      id: get_ytlite
+      shell: bash
+      env:
+        TWEAK_VERSION: ${{ inputs.tweak_version }}
+        WORKSPACE: ${{ inputs.workspace }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+      run: |
+        if [ -z "$TWEAK_VERSION" ]; then
+          echo "Fetching latest release from dayanch96/YTLite..."
+          
+          LATEST_TAG=$(python3 -c "
+          import json, urllib.request, sys, os
+          try:
+              token = os.environ.get('GITHUB_TOKEN', '')
+              req = urllib.request.Request('https://api.github.com/repos/dayanch96/YTLite/releases/latest')
+              req.add_header('Authorization', f'Bearer {token}')
+              req.add_header('Accept', 'application/vnd.github.v3+json')
+              with urllib.request.urlopen(req) as response:
+                  data = json.loads(response.read().decode())
+                  tag = data.get('tag_name', '')
+                  if tag:
+                      print(tag)
+                  else:
+                      print('No tag_name in response', file=sys.stderr)
+                      sys.exit(1)
+          except urllib.error.HTTPError as e:
+              print(f'HTTP Error {e.code}: {e.reason}', file=sys.stderr)
+              if e.code == 404:
+                  print('Release not found', file=sys.stderr)
+              sys.exit(1)
+          except Exception as e:
+              print(f'Error: {e}', file=sys.stderr)
+              sys.exit(1)
+          ")
+          
+          if [ -z "$LATEST_TAG" ]; then
+            echo "::error::Failed to fetch latest release tag from GitHub API"
+            exit 1
+          fi
+          
+          VERSION="${LATEST_TAG#v}"
+          echo "Latest version found: $VERSION (tag: $LATEST_TAG)"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        else
+          # Normalize version: remove 'v' prefix if present (tag is 'v5.2b3', but we store without 'v')
+          VERSION="$TWEAK_VERSION"
+          VERSION="${VERSION#v}"
+          echo "Using provided version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        fi
+        
+        deb_url="https://github.com/dayanch96/YTLite/releases/download/v$VERSION/com.dvntm.ytlite_${VERSION}_iphoneos-arm.deb"
+        echo "Downloading YouTube Plus version: $VERSION"
+        wget "$deb_url" --no-verbose -O $WORKSPACE/ytplus.deb
+

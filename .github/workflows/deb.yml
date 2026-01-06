@@ -52,29 +52,33 @@ on:
         required: true
         default: false
 
+      enable_gonerino:
+        description: "Build Gonerino"
+        type: boolean
+        required: true
+        default: false
+
       enable_yougroupsettings:
         description: "Build YouGroupSettings"
         type: boolean
         required: true
         default: true
 
-      enable_gonerino:
-        description: "Build Gonerino"
-        type: boolean
-        required: true
-        default: true
-
       tweak_version:
-        description: "The version of YTLite to download. Enter the version manually from dayanch96/YTLite/releases or leave default"
-        default: "5.2b4"
-        required: true
+        description: "The version of YTLite to use. E.g. 5.2b3 (optional - leave empty to use latest tag from github.com/dayanch96/YTLite/tags)"
+        default: ""
+        required: false
         type: string
 
-      info_note:
-        description: "TIP: Learn more about integrations in the README via the link below"
-        default: "https://github.com/dayanch96/YTLite#tweak-integration-details"
-        type: string
-        required: false
+      sdk_version:
+        description: "iOS SDK Version"
+        type: choice
+        options:
+          - 16.5
+          - 17.5
+          - 18.6
+        required: true
+        default: 16.5
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -88,250 +92,189 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout Main
+      - name: Checkout repo
         uses: actions/checkout@v4.1.1
         with:
-          path: main
+          #path: main
           submodules: recursive
 
-      - name: Hide sensitive inputs
-        uses: levibostian/action-hide-sensitive-inputs@v1
-        with:
-          exclude_inputs: enable_demc,enable_ryd,enable_youpip,enable_yq,enable_ytabconfig,enable_ytweaks,enable_yticons,enable_yougroupsettings,enable_ytuhd,enable_gonerino,info_note,tweak_version
-
-      - name: Install Dependencies
+      - name: Install dependencies
         run: brew install make ldid
 
       - name: Set PATH environment variable
         run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
 
+      - name: Check if any tweaks are enabled
+        id: check_tweaks
+        run: |
+          if [ "${{ inputs.enable_youpip }}" = "true" ] || \
+             [ "${{ inputs.enable_ytuhd }}" = "true" ] || \
+             [ "${{ inputs.enable_yq }}" = "true" ] || \
+             [ "${{ inputs.enable_ryd }}" = "true" ] || \
+             [ "${{ inputs.enable_demc }}" = "true" ] || \
+             [ "${{ inputs.enable_ytabconfig }}" = "true" ] || \
+             [ "${{ inputs.enable_ytweaks }}" = "true" ] || \
+             [ "${{ inputs.enable_yticons }}" = "true" ] || \
+             [ "${{ inputs.enable_yougroupsettings }}" = "true" ] || \
+             [ "${{ inputs.enable_gonerino }}" = "true" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+            echo "Tweaks are enabled"
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "No tweaks enabled"
+          fi
+
       - name: Cache Theos
-        if: ${{ inputs.enable_youpip || inputs.enable_ytuhd || inputs.enable_yq || inputs.enable_ryd || inputs.enable_demc || inputs.enable_ytabconfig || inputs.enable_ytweaks || inputs.enable_yticons || inputs.enable_yougroupsettings || inputs.enable_gonerino }}
+        if: steps.check_tweaks.outputs.enabled == 'true'
         id: theos
-        uses: actions/cache@v4
-        env:
-          cache-name: theos_cache_67db2ab
+        uses: ./.github/actions/cache-theos
         with:
-          path: theos/
-          key: ${{ env.cache-name }}
-          restore-keys: ${{ env.cache-name }}
+          sdk_version: ${{ inputs.sdk_version }}
 
       - name: Setup Theos
-        if: ${{ (inputs.enable_youpip || inputs.enable_ytuhd || inputs.enable_yq || inputs.enable_ryd || inputs.enable_demc || inputs.enable_ytabconfig || inputs.enable_ytweaks || inputs.enable_yticons || inputs.enable_yougroupsettings || inputs.enable_gonerino) && steps.theos.outputs.cache-hit != 'true' }}
-        uses: actions/checkout@v4.1.7
+        if: steps.check_tweaks.outputs.enabled == 'true'
+        uses: ./.github/actions/setup-theos
         with:
-          repository: theos/theos
-          ref: 67db2ab8d950910161730de77c322658ea3e6b44
-          path: ${{ github.workspace }}/theos
-          submodules: recursive
+          workspace: ${{ github.workspace }}
+          cache_hit: ${{ steps.theos.outputs.cache-hit }}
 
-      - name: Download iOS SDK
-        if: ${{ (inputs.enable_youpip || inputs.enable_ytuhd || inputs.enable_yq || inputs.enable_ryd || inputs.enable_demc || inputs.enable_ytabconfig || inputs.enable_ytweaks || inputs.enable_yticons || inputs.enable_yougroupsettings || inputs.enable_gonerino) && steps.theos.outputs.cache-hit != 'true' }}
-        run: |
-          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/theos/sdks/
-          cd sdks
-          git sparse-checkout set --no-cone iPhoneOS16.5.sdk
-          git checkout
-          mv *.sdk $THEOS/sdks
-        env:
-          THEOS: ${{ github.workspace }}/theos
+      - name: Download iOS 16.5 SDK
+        if: steps.check_tweaks.outputs.enabled == 'true' && inputs.sdk_version == 16.5 && steps.theos.outputs.cache-hit != 'true'
+        uses: ./.github/actions/download-sdk-16.5
+        with:
+          theos_path: ${{ github.workspace }}/theos
 
-      - name: Download YouTube Plus
-        id: download_ytp
-        run: |
-          deb_url="https://github.com/dayanch96/YTLite/releases/download/v${{ inputs.tweak_version }}/com.dvntm.ytlite_${{ inputs.tweak_version }}_iphoneos-arm.deb"
-          wget "$deb_url" --no-verbose -O ${{ github.workspace }}/ytplus.deb
+      - name: Download iOS 17.5 SDK
+        if: steps.check_tweaks.outputs.enabled == 'true' && inputs.sdk_version == 17.5 && steps.theos.outputs.cache-hit != 'true'
+        uses: ./.github/actions/download-sdk-17.5
+        with:
+          theos_path: ${{ github.workspace }}/theos
+
+      - name: Download iOS 18.6 SDK
+        if: steps.check_tweaks.outputs.enabled == 'true' && inputs.sdk_version == 18.6 && steps.theos.outputs.cache-hit != 'true'
+        uses: ./.github/actions/download-sdk-18.6
+        with:
+          theos_path: ${{ github.workspace }}/theos
+
+      - name: Get YTLite release
+        id: ytlite_version
+        uses: ./.github/actions/get-YTLite
+        with:
+          tweak_version: ${{ inputs.tweak_version }}
+          workspace: ${{ github.workspace }}
+          github_token: ${{ github.token }}
 
       - name: Clone YouTubeHeader
-        if: ${{ inputs.enable_youpip || inputs.enable_ytuhd || inputs.enable_yq || inputs.enable_ryd || inputs.enable_demc || inputs.enable_ytabconfig || inputs.enable_ytweaks || inputs.enable_yticons || inputs.enable_yougroupsettings || inputs.enable_gonerino }}
-        run: |
-          if [ -d "$THEOS/include/YouTubeHeader" ]; then
-            echo "YouTubeHeader exists. Pulling latest changes..."
-            cd $THEOS/include/YouTubeHeader
-            git pull
-          else
-            echo "YouTubeHeader does not exist. Cloning repository..."
-            cd $THEOS/include
-            git clone --quiet --depth=1 https://github.com/PoomSmart/YouTubeHeader.git
-          fi
-
-          if [ "${{ inputs.enable_demc }}" = "true" ]; then
-            echo "Copying YouTubeHeader to YTHeaders..."
-            rm -rf "$THEOS/include/YTHeaders"
-            cp -r "$THEOS/include/YouTubeHeader" "$THEOS/include/YTHeaders"
-          fi
-        env:
-          THEOS: ${{ github.workspace }}/theos
+        if: steps.check_tweaks.outputs.enabled == 'true'
+        uses: ./.github/actions/clone-youtube-header
+        with:
+          theos_path: ${{ github.workspace }}/theos
+          enable_demc: ${{ inputs.enable_demc }}
 
       - name: Clone PSHeader
-        if: ${{ inputs.enable_youpip || inputs.enable_ytuhd || inputs.enable_yq || inputs.enable_ryd || inputs.enable_demc || inputs.enable_ytabconfig || inputs.enable_ytweaks || inputs.enable_yticons || inputs.enable_yougroupsettings || inputs.enable_gonerino }}
-        run: |
-          if [ -d "$THEOS/include/PSHeader" ]; then
-            echo "PSHeader exists. Pulling latest changes..."
-            cd $THEOS/include/PSHeader
-            git pull
-          else
-            echo "PSHeader does not exist. Cloning repository..."
-            cd $THEOS/include
-            git clone --quiet --depth=1 https://github.com/PoomSmart/PSHeader.git
-          fi
-        env:
-          THEOS: ${{ github.workspace }}/theos
+        if: steps.check_tweaks.outputs.enabled == 'true'
+        uses: ./.github/actions/clone-ps-header
+        with:
+          theos_path: ${{ github.workspace }}/theos
+
+      - name: Get tweak commit hashes
+        if: steps.check_tweaks.outputs.enabled == 'true'
+        id: tweak_commits
+        uses: ./.github/actions/get-tweak-commit-hashes
+        with:
+          enable_youpip: ${{ inputs.enable_youpip }}
+          enable_ytuhd: ${{ inputs.enable_ytuhd }}
+          enable_ryd: ${{ inputs.enable_ryd }}
+          enable_yougroupsettings: ${{ inputs.enable_yougroupsettings }}
+          enable_yq: ${{ inputs.enable_yq }}
+          enable_ytabconfig: ${{ inputs.enable_ytabconfig }}
+          enable_ytweaks: ${{ inputs.enable_ytweaks }}
+          enable_yticons: ${{ inputs.enable_yticons }}
+          enable_demc: ${{ inputs.enable_demc }}
+          enable_gonerino: ${{ inputs.enable_gonerino }}
+
+      - name: Cache tweaks
+        if: steps.check_tweaks.outputs.enabled == 'true'
+        id: cache_tweaks_step
+        uses: ./.github/actions/cache-tweaks
+        with:
+          enable_youpip: ${{ inputs.enable_youpip }}
+          enable_ytuhd: ${{ inputs.enable_ytuhd }}
+          enable_ryd: ${{ inputs.enable_ryd }}
+          enable_yougroupsettings: ${{ inputs.enable_yougroupsettings }}
+          enable_yq: ${{ inputs.enable_yq }}
+          enable_ytabconfig: ${{ inputs.enable_ytabconfig }}
+          enable_ytweaks: ${{ inputs.enable_ytweaks }}
+          enable_yticons: ${{ inputs.enable_yticons }}
+          enable_demc: ${{ inputs.enable_demc }}
+          enable_gonerino: ${{ inputs.enable_gonerino }}
+          sdk_version: ${{ inputs.sdk_version }}
+          youpip_commit: ${{ steps.tweak_commits.outputs.youpip }}
+          ytuhd_commit: ${{ steps.tweak_commits.outputs.ytuhd }}
+          ryd_commit: ${{ steps.tweak_commits.outputs.ryd }}
+          ygs_commit: ${{ steps.tweak_commits.outputs.ygs }}
+          yq_commit: ${{ steps.tweak_commits.outputs.yq }}
+          yabc_commit: ${{ steps.tweak_commits.outputs.yabc }}
+          ytwks_commit: ${{ steps.tweak_commits.outputs.ytwks }}
+          yticons_commit: ${{ steps.tweak_commits.outputs.yticons }}
+          demc_commit: ${{ steps.tweak_commits.outputs.demc }}
+          gonerino_commit: ${{ steps.tweak_commits.outputs.gonerino }}
+          ytvo_commit: ${{ steps.tweak_commits.outputs.ytvo }}
 
       - name: Clone tweaks
-        if: ${{ inputs.enable_youpip || inputs.enable_ytuhd || inputs.enable_yq || inputs.enable_ryd || inputs.enable_demc || inputs.enable_ytabconfig || inputs.enable_ytweaks || inputs.enable_yticons || inputs.enable_yougroupsettings || inputs.enable_gonerino }}
-        run: |
-          cd ${{ github.workspace }}
-          
-          if [ "${{ inputs.enable_youpip }}" = "true" ]; then
-            echo "Cloning YouPiP..."
-            git clone --quiet --depth=1 https://github.com/PoomSmart/YouPiP.git
-          fi
-          
-          if [ "${{ inputs.enable_ytuhd }}" = "true" ]; then
-            echo "Cloning YTUHD..."
-            git clone --quiet --depth=1 https://github.com/Tonwalter888/YTUHD.git
-          fi
-          
-          if [ "${{ inputs.enable_ryd }}" = "true" ]; then
-            echo "Cloning Return-YouTube-Dislikes..."
-            git clone --quiet --depth=1 https://github.com/PoomSmart/Return-YouTube-Dislikes.git
-          fi
-          
-          if [ "${{ inputs.enable_yougroupsettings }}" = "true" ]; then
-            echo "Cloning YouGroupSettings..."
-            git clone --quiet --depth=1 https://github.com/fosterbarnes/YouGroupSettings.git
-          fi
-          
-          if [ "${{ inputs.enable_yq }}" = "true" ]; then
-            echo "Cloning YouQuality..."
-            git clone --quiet --depth=1 https://github.com/PoomSmart/YouQuality.git
-          fi
-          
-          if [ "${{ inputs.enable_ytabconfig }}" = "true" ]; then
-            echo "Cloning YTABConfig..."
-            git clone --quiet --depth=1 https://github.com/PoomSmart/YTABConfig.git
-          fi
-          
-          if [ "${{ inputs.enable_ytweaks }}" = "true" ]; then
-            echo "Cloning YTweaks..."
-            git clone --quiet --depth=1 https://github.com/fosterbarnes/YTweaks.git
-          fi
-          
-          if [ "${{ inputs.enable_yticons }}" = "true" ]; then
-            echo "Cloning YTIcons..."
-            git clone --quiet --depth=1 https://github.com/PoomSmart/YTIcons.git
-          fi
-          
-          if [ "${{ inputs.enable_demc }}" = "true" ]; then
-            echo "Cloning DontEatMyContent..."
-            git clone --quiet --depth=1 --recurse-submodules https://github.com/therealFoxster/DontEatMyContent.git
-          fi
-          
-          if [ "${{ inputs.enable_gonerino }}" = "true" ]; then
-            echo "Cloning Gonerino..."
-            git clone --quiet --depth=1 https://github.com/castdrian/Gonerino.git
-          fi
-          
-          if [ "${{ inputs.enable_yq }}" = "true" ] || [ "${{ inputs.enable_youpip }}" = "true" ]; then
-            echo "Cloning YTVideoOverlay..."
-            git clone --quiet --depth=1 https://github.com/PoomSmart/YTVideoOverlay.git
-          fi
+        if: steps.check_tweaks.outputs.enabled == 'true'
+        uses: ./.github/actions/clone-tweaks
+        with:
+          enable_youpip: ${{ inputs.enable_youpip }}
+          enable_ytuhd: ${{ inputs.enable_ytuhd }}
+          enable_ryd: ${{ inputs.enable_ryd }}
+          enable_yougroupsettings: ${{ inputs.enable_yougroupsettings }}
+          enable_yq: ${{ inputs.enable_yq }}
+          enable_ytabconfig: ${{ inputs.enable_ytabconfig }}
+          enable_ytweaks: ${{ inputs.enable_ytweaks }}
+          enable_yticons: ${{ inputs.enable_yticons }}
+          enable_demc: ${{ inputs.enable_demc }}
+          enable_gonerino: ${{ inputs.enable_gonerino }}
+          cache_youpip_hit: ${{ steps.cache_tweaks_step.outputs.cache_youpip_hit }}
+          cache_ytuhd_hit: ${{ steps.cache_tweaks_step.outputs.cache_ytuhd_hit }}
+          cache_ryd_hit: ${{ steps.cache_tweaks_step.outputs.cache_ryd_hit }}
+          cache_ygs_hit: ${{ steps.cache_tweaks_step.outputs.cache_ygs_hit }}
+          cache_yq_hit: ${{ steps.cache_tweaks_step.outputs.cache_yq_hit }}
+          cache_yabc_hit: ${{ steps.cache_tweaks_step.outputs.cache_yabc_hit }}
+          cache_ytwks_hit: ${{ steps.cache_tweaks_step.outputs.cache_ytwks_hit }}
+          cache_yticons_hit: ${{ steps.cache_tweaks_step.outputs.cache_yticons_hit }}
+          cache_demc_hit: ${{ steps.cache_tweaks_step.outputs.cache_demc_hit }}
+          cache_gonerino_hit: ${{ steps.cache_tweaks_step.outputs.cache_gonerino_hit }}
+          cache_ytvo_hit: ${{ steps.cache_tweaks_step.outputs.cache_ytvo_hit }}
+          workspace: ${{ github.workspace }}
 
       - name: Build tweaks
-        if: ${{ inputs.enable_youpip || inputs.enable_ytuhd || inputs.enable_yq || inputs.enable_ryd || inputs.enable_demc || inputs.enable_ytabconfig || inputs.enable_ytweaks || inputs.enable_yticons || inputs.enable_yougroupsettings || inputs.enable_gonerino }}
-        run: |
-          cd ${{ github.workspace }}
-          
-          if [ "${{ inputs.enable_youpip }}" = "true" ]; then
-            echo "Building YouPiP..."
-            cd YouPiP
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/youpip.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_ytuhd }}" = "true" ]; then
-            echo "Building YTUHD..."
-            cd YTUHD
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/ytuhd.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_ryd }}" = "true" ]; then
-            echo "Building Return-YouTube-Dislikes..."
-            cd Return-YouTube-Dislikes
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/ryd.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_yougroupsettings }}" = "true" ]; then
-            echo "Building YouGroupSettings..."
-            cd YouGroupSettings
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/ygs.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_yq }}" = "true" ]; then
-            echo "Building YouQuality..."
-            cd YouQuality
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/yq.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_ytabconfig }}" = "true" ]; then
-            echo "Building YTABConfig..."
-            cd YTABConfig
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/yabc.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_ytweaks }}" = "true" ]; then
-            echo "Building YTweaks..."
-            cd YTweaks
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/ytwks.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_yticons }}" = "true" ]; then
-            echo "Building YTIcons..."
-            cd YTIcons
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/yticons.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_demc }}" = "true" ]; then
-            echo "Building DontEatMyContent..."
-            cd DontEatMyContent
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/demc.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_gonerino }}" = "true" ]; then
-            echo "Building Gonerino..."
-            cd Gonerino
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/gonerino.deb
-            cd ..
-          fi
-          
-          if [ "${{ inputs.enable_yq }}" = "true" ] || [ "${{ inputs.enable_youpip }}" = "true" ]; then
-            echo "Building YTVideoOverlay..."
-            cd YTVideoOverlay
-            make clean package DEBUG=0 FINALPACKAGE=1
-            mv packages/*.deb ${{ github.workspace }}/ytvo.deb
-            cd ..
-          fi
-        env:
-          THEOS: ${{ github.workspace }}/theos
+        if: steps.check_tweaks.outputs.enabled == 'true'
+        uses: ./.github/actions/build-tweaks
+        with:
+          enable_youpip: ${{ inputs.enable_youpip }}
+          enable_ytuhd: ${{ inputs.enable_ytuhd }}
+          enable_ryd: ${{ inputs.enable_ryd }}
+          enable_yougroupsettings: ${{ inputs.enable_yougroupsettings }}
+          enable_yq: ${{ inputs.enable_yq }}
+          enable_ytabconfig: ${{ inputs.enable_ytabconfig }}
+          enable_ytweaks: ${{ inputs.enable_ytweaks }}
+          enable_yticons: ${{ inputs.enable_yticons }}
+          enable_demc: ${{ inputs.enable_demc }}
+          enable_gonerino: ${{ inputs.enable_gonerino }}
+          cache_youpip_hit: ${{ steps.cache_tweaks_step.outputs.cache_youpip_hit }}
+          cache_ytuhd_hit: ${{ steps.cache_tweaks_step.outputs.cache_ytuhd_hit }}
+          cache_ryd_hit: ${{ steps.cache_tweaks_step.outputs.cache_ryd_hit }}
+          cache_ygs_hit: ${{ steps.cache_tweaks_step.outputs.cache_ygs_hit }}
+          cache_yq_hit: ${{ steps.cache_tweaks_step.outputs.cache_yq_hit }}
+          cache_yabc_hit: ${{ steps.cache_tweaks_step.outputs.cache_yabc_hit }}
+          cache_ytwks_hit: ${{ steps.cache_tweaks_step.outputs.cache_ytwks_hit }}
+          cache_yticons_hit: ${{ steps.cache_tweaks_step.outputs.cache_yticons_hit }}
+          cache_demc_hit: ${{ steps.cache_tweaks_step.outputs.cache_demc_hit }}
+          cache_gonerino_hit: ${{ steps.cache_tweaks_step.outputs.cache_gonerino_hit }}
+          cache_ytvo_hit: ${{ steps.cache_tweaks_step.outputs.cache_ytvo_hit }}
+          theos_path: ${{ github.workspace }}/theos
+          workspace: ${{ github.workspace }}
 
       - name: Collect DEB files
         run: |
@@ -376,12 +319,20 @@ jobs:
           [ -f "gonerino.deb" ] && mv "gonerino.deb" "Gonerino.deb"
           echo "Renamed DEB files to their full names"
 
+      - name: Zip DEBs
+        run: |
+          cd ${{ github.workspace }}/debs
+          zip -r ../debs.zip *.deb
+          echo "Created debs.zip with all DEB files"
+
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2.0.1
         with:
           tag_name: debs-${{ github.run_number }}
-          name: YouTube Plus DEBs v${{ inputs.tweak_version }} (${{ github.run_number }})
-          files: debs/*.deb
+          name: YTPlusYTweaks_${{ steps.ytlite_version.outputs.version }}_SDK${{ inputs.sdk_version }} (${{ github.run_number }})
+          files: |
+            debs/*.deb
+            debs.zip
           draft: true
 
       - name: Output Release URL

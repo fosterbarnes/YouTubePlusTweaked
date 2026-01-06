@@ -1,0 +1,114 @@
+name: 'Get Tweak Commit Hashes'
+description: 'Get commit hashes for enabled tweaks'
+inputs:
+  enable_youpip:
+    required: true
+  enable_ytuhd:
+    required: true
+  enable_ryd:
+    required: true
+  enable_yougroupsettings:
+    required: true
+  enable_yq:
+    required: true
+  enable_ytabconfig:
+    required: true
+  enable_ytweaks:
+    required: true
+  enable_yticons:
+    required: true
+  enable_demc:
+    required: true
+  enable_gonerino:
+    required: true
+
+outputs:
+  youpip:
+    description: "YouPiP commit hash"
+    value: ${{ steps.get_commits.outputs.youpip }}
+  ytuhd:
+    description: "YTUHD commit hash"
+    value: ${{ steps.get_commits.outputs.ytuhd }}
+  ryd:
+    description: "Return YouTube Dislikes commit hash"
+    value: ${{ steps.get_commits.outputs.ryd }}
+  ygs:
+    description: "YouGroupSettings commit hash"
+    value: ${{ steps.get_commits.outputs.ygs }}
+  yq:
+    description: "YouQuality commit hash"
+    value: ${{ steps.get_commits.outputs.yq }}
+  yabc:
+    description: "YTABConfig commit hash"
+    value: ${{ steps.get_commits.outputs.yabc }}
+  ytwks:
+    description: "YTweaks commit hash"
+    value: ${{ steps.get_commits.outputs.ytwks }}
+  yticons:
+    description: "YTIcons commit hash"
+    value: ${{ steps.get_commits.outputs.yticons }}
+  demc:
+    description: "DontEatMyContent commit hash"
+    value: ${{ steps.get_commits.outputs.demc }}
+  gonerino:
+    description: "Gonerino commit hash"
+    value: ${{ steps.get_commits.outputs.gonerino }}
+  ytvo:
+    description: "YTVideoOverlay commit hash"
+    value: ${{ steps.get_commits.outputs.ytvo }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get tweak commit hashes
+      id: get_commits
+      shell: bash
+      env:
+        ENABLE_YOUPIP: ${{ inputs.enable_youpip }}
+        ENABLE_YTUHD: ${{ inputs.enable_ytuhd }}
+        ENABLE_RYD: ${{ inputs.enable_ryd }}
+        ENABLE_YOUGROUPSETTINGS: ${{ inputs.enable_yougroupsettings }}
+        ENABLE_YQ: ${{ inputs.enable_yq }}
+        ENABLE_YTABCONFIG: ${{ inputs.enable_ytabconfig }}
+        ENABLE_YTWEAKS: ${{ inputs.enable_ytweaks }}
+        ENABLE_YTICONS: ${{ inputs.enable_yticons }}
+        ENABLE_DEMC: ${{ inputs.enable_demc }}
+        ENABLE_GONERINO: ${{ inputs.enable_gonerino }}
+      run: |
+        cd ${{ github.workspace }}
+        
+        get_commit_hash() {
+          local repo_url=$1
+          git ls-remote "$repo_url" HEAD | awk '{print substr($1,1,7)}'
+        }
+        
+        # env_var|output_key|repo_url|display_name
+        declare -a tweaks=(
+          "ENABLE_YOUPIP|youpip|https://github.com/PoomSmart/YouPiP.git|YouPiP"
+          "ENABLE_YTUHD|ytuhd|https://github.com/Tonwalter888/YTUHD.git|YTUHD"
+          "ENABLE_RYD|ryd|https://github.com/PoomSmart/Return-YouTube-Dislikes.git|Return-YouTube-Dislikes"
+          "ENABLE_YOUGROUPSETTINGS|ygs|https://github.com/fosterbarnes/YouGroupSettings.git|YouGroupSettings"
+          "ENABLE_YQ|yq|https://github.com/PoomSmart/YouQuality.git|YouQuality"
+          "ENABLE_YTABCONFIG|yabc|https://github.com/PoomSmart/YTABConfig.git|YTABConfig"
+          "ENABLE_YTWEAKS|ytwks|https://github.com/fosterbarnes/YTweaks.git|YTweaks"
+          "ENABLE_YTICONS|yticons|https://github.com/PoomSmart/YTIcons.git|YTIcons"
+          "ENABLE_DEMC|demc|https://github.com/therealFoxster/DontEatMyContent.git|DontEatMyContent"
+          "ENABLE_GONERINO|gonerino|https://github.com/castdrian/Gonerino.git|Gonerino"
+        )
+        
+        for tweak in "${tweaks[@]}"; do
+          IFS='|' read -r env_var output_key repo_url display_name <<< "$tweak"
+          if [ "${!env_var}" = "true" ]; then
+            commit_hash=$(get_commit_hash "$repo_url")
+            echo "$output_key=$commit_hash" >> $GITHUB_OUTPUT
+            echo "$display_name commit: $commit_hash"
+          fi
+        done
+        
+        # Handle conditional YTVideoOverlay
+        if [ "$ENABLE_YQ" = "true" ] || [ "$ENABLE_YOUPIP" = "true" ]; then
+          YTVO_COMMIT=$(get_commit_hash "https://github.com/PoomSmart/YTVideoOverlay.git")
+          echo "ytvo=$YTVO_COMMIT" >> $GITHUB_OUTPUT
+          echo "YTVideoOverlay commit: $YTVO_COMMIT"
+        fi
+

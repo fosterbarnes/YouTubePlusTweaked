@@ -1,0 +1,22 @@
+name: 'Setup Theos'
+description: 'Setup Theos by cloning the repository'
+inputs:
+  workspace:
+    required: true
+    description: 'GitHub workspace path'
+  cache_hit:
+    required: true
+    description: 'Whether Theos cache was hit'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Theos
+      if: inputs.cache_hit != 'true'
+      uses: actions/checkout@v4.1.7
+      with:
+        repository: theos/theos
+        ref: 95ab5f4db49cb28ef8fff2d9ec91c840f2ca73f0
+        path: ${{ inputs.workspace }}/theos
+        submodules: recursive
+
