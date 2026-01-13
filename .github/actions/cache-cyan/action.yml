@@ -5,10 +5,6 @@ inputs:
   cyan_commit:
     description: 'Commit hash from pyzule-rw repository'
     required: true
-  cache_version:
-    description: 'Manual cache version for invalidation'
-    required: false
-    default: 'v1'
 
 outputs:
   cache-hit:
@@ -18,7 +14,7 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Cache Cyan installation
+    - name: Restore Cyan from cache
       id: cache
       uses: actions/cache@v4
       with:
@@ -26,10 +22,9 @@ runs:
           ~/.local/pipx/venvs/cyan
           ~/.local/bin/cyan
           ~/.local/bin/cgen
-        key: pipx-cyan-${{ runner.os }}-${{ inputs.cyan_commit }}-${{ inputs.cache_version }}
+        key: pipx-cyan-${{ runner.os }}-${{ inputs.cyan_commit }}
         restore-keys: |
-          pipx-cyan-${{ runner.os }}-${{ inputs.cyan_commit }}-
-          pipx-cyan-${{ runner.os }}-
+          pipx-cyan-${{ runner.os }}-${{ inputs.cyan_commit }}
 
     - name: Install Cyan
       if: steps.cache.outputs.cache-hit != 'true'

@@ -88,12 +88,10 @@ runs:
           git ls-remote "$repo_url" HEAD | awk '{print substr($1,1,7)}'
         }
         
-        # Get cyan commit hash (always needed)
         CYAN_COMMIT=$(get_commit_hash "https://github.com/asdfzxcvbn/pyzule-rw.git")
         echo "cyan=$CYAN_COMMIT" >> $GITHUB_OUTPUT
         echo "Cyan commit: $CYAN_COMMIT"
         
-        # Get theos commit hash (always needed)
         THEOS_COMMIT=$(get_commit_hash "https://github.com/theos/theos.git")
         echo "theos=$THEOS_COMMIT" >> $GITHUB_OUTPUT
         echo "Theos commit: $THEOS_COMMIT"
